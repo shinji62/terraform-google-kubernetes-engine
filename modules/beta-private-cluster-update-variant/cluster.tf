@@ -282,19 +282,19 @@ resource "google_container_cluster" "primary" {
       enabled = var.config_connector
     }
 
-    dynamic "gke_backup_agent_config" {
-      for_each = local.gke_backup_agent_config
-
-      content {
-        enabled = gke_backup_agent_config.value.enabled
-      }
-    }
-
     dynamic "gcs_fuse_csi_driver_config" {
       for_each = local.gcs_fuse_csi_driver_config
 
       content {
         enabled = gcs_fuse_csi_driver_config.value.enabled
+      }
+    }
+
+    dynamic "gke_backup_agent_config" {
+      for_each = local.gke_backup_agent_config
+
+      content {
+        enabled = gke_backup_agent_config.value.enabled
       }
     }
 
@@ -975,6 +975,7 @@ resource "google_container_node_pool" "pools" {
       for_each = length(merge(
         local.node_pools_linux_node_configs_sysctls["all"],
         local.node_pools_linux_node_configs_sysctls[each.value["name"]],
+        local.node_pools_cgroup_mode["all"] == "" ? {} : { cgroup = local.node_pools_cgroup_mode["all"] },
         local.node_pools_cgroup_mode[each.value["name"]] == "" ? {} : { cgroup = local.node_pools_cgroup_mode[each.value["name"]] }
       )) != 0 ? [1] : []
 
@@ -983,7 +984,7 @@ resource "google_container_node_pool" "pools" {
           local.node_pools_linux_node_configs_sysctls["all"],
           local.node_pools_linux_node_configs_sysctls[each.value["name"]]
         )
-        cgroup_mode = local.node_pools_cgroup_mode[each.value["name"]] == "" ? null : local.node_pools_cgroup_mode[each.value["name"]]
+        cgroup_mode = coalesce(local.node_pools_cgroup_mode[each.value["name"]], local.node_pools_cgroup_mode["all"], null)
       }
     }
 
